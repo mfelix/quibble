@@ -1,5 +1,6 @@
 import type {
   QuibbleEvent,
+  RoundTimings,
   SessionStatistics,
 } from '../types/index.js';
 
@@ -37,6 +38,15 @@ export class EventEmitter {
     this.emit({
       type: 'round_start',
       round,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  emitRoundComplete(round: number, timings: RoundTimings): void {
+    this.emit({
+      type: 'round_complete',
+      round,
+      timings,
       timestamp: new Date().toISOString(),
     });
   }

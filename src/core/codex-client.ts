@@ -43,7 +43,8 @@ export class CodexClient extends BaseClient {
     originalFeedback: string,
     authorResponses: string,
     updatedDocument: string,
-    contextBlock?: string
+    contextBlock?: string,
+    onProgress?: (text: string, tokenCount: number | null, status?: string) => void
   ): Promise<CodexConsensus> {
     const prompt = buildCodexConsensusPrompt(
       originalDocument,
@@ -52,7 +53,7 @@ export class CodexClient extends BaseClient {
       updatedDocument,
       contextBlock
     );
-    const output = await this.runCodex(prompt, CODEX_CONSENSUS_SYSTEM_PROMPT);
+    const output = await this.runCodex(prompt, CODEX_CONSENSUS_SYSTEM_PROMPT, onProgress);
 
     const result = parseCliOutput(output, CodexConsensusSchema);
     if (!result.success) {

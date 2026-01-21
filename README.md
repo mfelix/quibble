@@ -97,6 +97,7 @@ Typical session layout:
     codex-review.json
     claude-response.json
     codex-consensus.json
+    timings.json (durations + token counts)
     document-v1.md
   final/
     document.md

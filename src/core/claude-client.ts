@@ -12,14 +12,21 @@ export type ProgressCallback = (text: string, tokenCount: number) => void;
 interface StreamEvent {
   type: 'delta';
   text: string;
+  usageTokens?: number;
 }
 
 interface ResultEvent {
   type: 'result';
   text: string;
+  usageTokens?: number;
 }
 
-type ParsedStreamLine = StreamEvent | ResultEvent | null;
+interface UsageEvent {
+  type: 'usage';
+  usageTokens: number;
+}
+
+type ParsedStreamLine = StreamEvent | ResultEvent | UsageEvent | null;
 
 /**
  * Parse a JSONL line from Claude CLI streaming output.
@@ -35,15 +42,16 @@ function parseStreamLine(line: string): ParsedStreamLine {
     if (!cleaned || cleaned === '[DONE]') return null;
 
     const event = JSON.parse(cleaned);
+    const usageTokens = extractUsageTokens(event);
 
     const nestedDeltaText = event?.event?.delta?.text;
     if (typeof nestedDeltaText === 'string') {
-      return { type: 'delta', text: nestedDeltaText };
+      return { type: 'delta', text: nestedDeltaText, usageTokens };
     }
 
     const directDeltaText = event?.delta?.text;
     if (typeof directDeltaText === 'string') {
-      return { type: 'delta', text: directDeltaText };
+      return { type: 'delta', text: directDeltaText, usageTokens };
     }
 
     if (event?.type === 'message' && Array.isArray(event?.content)) {
@@ -52,7 +60,7 @@ function parseStreamLine(line: string): ParsedStreamLine {
         .map((item: { text: string }) => item.text)
         .join('');
       if (text) {
-        return { type: 'result', text };
+        return { type: 'result', text, usageTokens };
       }
     }
 
@@ -62,7 +70,7 @@ function parseStreamLine(line: string): ParsedStreamLine {
       event.event?.type === 'content_block_delta' &&
       event.event?.delta?.type === 'text_delta'
     ) {
-      return { type: 'delta', text: event.event.delta.text };
+      return { type: 'delta', text: event.event.delta.text, usageTokens };
     }
 
     if (
@@ -70,20 +78,71 @@ function parseStreamLine(line: string): ParsedStreamLine {
       event.delta?.type === 'text_delta' &&
       typeof event.delta.text === 'string'
     ) {
-      return { type: 'delta', text: event.delta.text };
+      return { type: 'delta', text: event.delta.text, usageTokens };
     }
 
     // Handle final result
     if (event.type === 'result' && event.result) {
       if (typeof event.result === 'string') {
-        return { type: 'result', text: event.result };
+        return { type: 'result', text: event.result, usageTokens };
       }
+    }
+
+    if (typeof usageTokens === 'number') {
+      return { type: 'usage', usageTokens };
     }
 
     return null;
   } catch {
     return null;
   }
+}
+
+function extractUsageTokens(event: unknown): number | undefined {
+  if (!event || typeof event !== 'object') return undefined;
+  const data = event as Record<string, unknown>;
+  const candidates: Array<Record<string, unknown>> = [];
+  const direct = asRecord(data);
+  if (direct) candidates.push(direct);
+  const message = asRecord(data.message);
+  if (message) candidates.push(message);
+  const result = asRecord(data.result);
+  if (result) candidates.push(result);
+  const eventRecord = asRecord(data.event);
+  if (eventRecord) {
+    candidates.push(eventRecord);
+    const nestedMessage = asRecord(eventRecord.message);
+    if (nestedMessage) candidates.push(nestedMessage);
+  }
+
+  let usage: Record<string, unknown> | null = null;
+  for (const candidate of candidates) {
+    const found = asRecord(candidate.usage);
+    if (found) {
+      usage = found;
+      break;
+    }
+  }
+
+  if (!usage) return undefined;
+
+  const total = (usage as Record<string, unknown>).total_tokens;
+  if (typeof total === 'number') return total;
+
+  const input = (usage as Record<string, unknown>).input_tokens;
+  const output = (usage as Record<string, unknown>).output_tokens;
+  if (typeof input === 'number' && typeof output === 'number') {
+    return input + output;
+  }
+  if (typeof output === 'number') return output;
+  if (typeof input === 'number') return input;
+
+  return undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object') return null;
+  return value as Record<string, unknown>;
 }
 
 export class ClaudeClient extends BaseClient {
@@ -147,10 +206,21 @@ export class ClaudeClient extends BaseClient {
 
       if (parsed.type === 'delta') {
         accumulatedText += parsed.text;
-        tokenCount++;
+        if (typeof parsed.usageTokens === 'number') {
+          tokenCount = parsed.usageTokens;
+        } else {
+          tokenCount++;
+        }
         onProgress(parsed.text, tokenCount);
       } else if (parsed.type === 'result') {
         finalResult = parsed.text;
+        if (typeof parsed.usageTokens === 'number') {
+          tokenCount = parsed.usageTokens;
+          onProgress('', tokenCount);
+        }
+      } else if (parsed.type === 'usage') {
+        tokenCount = parsed.usageTokens;
+        onProgress('', tokenCount);
       }
     };
 

@@ -7,6 +7,7 @@ import type {
   CodexReview,
   ClaudeResponse,
   CodexConsensus,
+  RoundTimings,
 } from '../types/index.js';
 
 const MANIFEST_PATH = 'manifest.json';
@@ -119,6 +120,10 @@ export class SessionManager {
 
   async saveDocument(round: number, content: string): Promise<void> {
     await this.storage.write(`round-${round}/document-v${round}.md`, content);
+  }
+
+  async saveRoundTimings(round: number, timings: RoundTimings): Promise<void> {
+    await this.storage.write(`round-${round}/timings.json`, JSON.stringify(timings, null, 2));
   }
 
   async loadDocument(round: number): Promise<string | null> {

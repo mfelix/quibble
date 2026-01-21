@@ -149,6 +149,26 @@ export interface RoundStartEvent {
   timestamp: string;
 }
 
+export interface RoundTimings {
+  codex_review_ms?: number;
+  claude_response_ms?: number;
+  consensus_check_ms?: number;
+  codex_review_tokens?: number;
+  claude_response_tokens?: number;
+  codex_consensus_tokens?: number;
+  codex_total_tokens?: number;
+  claude_total_tokens?: number;
+  round_total_ms: number;
+  session_elapsed_ms: number;
+}
+
+export interface RoundCompleteEvent {
+  type: 'round_complete';
+  round: number;
+  timings: RoundTimings;
+  timestamp: string;
+}
+
 export interface ContextEvent {
   type: 'context';
   round: number;
@@ -232,6 +252,7 @@ export interface CodexProgressEvent {
 export type QuibbleEvent =
   | StartEvent
   | RoundStartEvent
+  | RoundCompleteEvent
   | ContextEvent
   | CodexReviewEvent
   | ClaudeResponseEvent

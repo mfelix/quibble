@@ -4,6 +4,7 @@ import type { QuibbleEvent } from '../types/index.js';
 import { version } from './version.js';
 
 export class Display {
+  private labelWidth: number = 12;
   private spinner: Ora | null = null;
   private jsonMode: boolean;
   private verbose: boolean;
@@ -20,6 +21,12 @@ export class Display {
   private codexPreview: string = '';
   private codexTokenCount: number | null = null;
   private codexStatus: string = '';
+  private totalCodexMs: number = 0;
+  private totalClaudeMs: number = 0;
+  private totalConsensusMs: number = 0;
+  private totalRoundMs: number = 0;
+  private totalCodexTokens: number = 0;
+  private totalClaudeTokens: number = 0;
 
   constructor(options: { jsonMode: boolean; verbose: boolean }) {
     this.jsonMode = options.jsonMode;
@@ -38,6 +45,9 @@ export class Display {
         break;
       case 'round_start':
         this.showRoundStart(event.round);
+        break;
+      case 'round_complete':
+        this.showRoundComplete(event);
         break;
       case 'context':
         this.showContext(event);
@@ -144,12 +154,6 @@ export class Display {
 
   private showHeader(inputFile: string, outputFile: string): void {
     console.log();
-    console.log(chalk.bold(`Quibble v${version}`));
-    console.log(chalk.gray('='.repeat(47)));
-    console.log();
-    console.log(`Input: ${chalk.cyan(inputFile)}`);
-    console.log(`Output: ${chalk.cyan(outputFile)}`);
-    console.log();
   }
 
   private showRoundStart(round: number): void {
@@ -167,14 +171,15 @@ export class Display {
 
     console.log(
       chalk.yellow(
-        `[Codex] Found ${event.issues.length} issues (${critical} critical, ${major} major, ${minor} minor)`
+        `${this.formatLabel('Codex')} Found ${event.issues.length} issues (${critical} critical, ${major} major, ${minor} minor)`
       )
     );
     console.log(
       chalk.yellow(
-        `[Codex] Found ${event.opportunities.length} opportunities (${high} high, ${medium} medium)`
+        `${this.formatLabel('Codex')} Found ${event.opportunities.length} opportunities (${high} high, ${medium} medium)`
       )
     );
+    this.showStepUsage('Codex', this.codexStartTime, this.codexTokenCount);
     console.log();
     this.startClaudeSpinner();
   }
@@ -193,21 +198,22 @@ export class Display {
       ? `${shown.join(', ')} (+${remaining} more)`
       : shown.join(', ');
 
-    console.log(chalk.gray(`[Context] Included ${event.files.length} files (${totalKb} KB)`));
+    console.log(chalk.gray(`${this.formatLabel('Context')} Included ${event.files.length} files (${totalKb} KB)`));
     if (line) {
-      console.log(chalk.gray(`[Context] ${line}`));
+      console.log(chalk.gray(`${this.formatLabel('Context')} ${line}`));
     }
     console.log();
   }
 
   private showClaudeResponse(event: QuibbleEvent & { type: 'claude_response' }): void {
     console.log(
-      chalk.blue(`[Claude] Agreed: ${event.agreed.length} issues, disputed: ${event.disputed.length}`)
+      chalk.blue(`${this.formatLabel('Claude')} Agreed: ${event.agreed.length} issues, disputed: ${event.disputed.length}`)
     );
     if (event.partial.length > 0) {
-      console.log(chalk.blue(`[Claude] Partial agreement: ${event.partial.length} items`));
+      console.log(chalk.blue(`${this.formatLabel('Claude')} Partial agreement: ${event.partial.length} items`));
     }
-    console.log(chalk.blue('[Claude] Document updated'));
+    console.log(chalk.blue(`${this.formatLabel('Claude')} Document updated`));
+    this.showStepUsage('Claude', this.claudeStartTime, this.claudeTokenCount);
     console.log();
     this.startSpinner(chalk.magenta('[Consensus] Checking...'));
   }
@@ -255,13 +261,42 @@ export class Display {
 
   private showConsensus(event: QuibbleEvent & { type: 'consensus' }): void {
     if (event.reached) {
-      console.log(chalk.green('[Consensus] Reached!'));
+      console.log(chalk.green(`${this.formatLabel('Consensus')} Reached!`));
     } else {
       console.log(
-        chalk.yellow(`[Consensus] Not reached - ${event.outstanding.length} items outstanding`)
+        chalk.yellow(`${this.formatLabel('Consensus')} Not reached - ${event.outstanding.length} items outstanding`)
       );
     }
+  }
+
+  private showRoundComplete(event: QuibbleEvent & { type: 'round_complete' }): void {
+    const timings = event.timings;
+    const parts: string[] = [];
+
+    const consensusParts: string[] = [];
+    if (typeof timings.codex_consensus_tokens === 'number') {
+      consensusParts.push(`${timings.codex_consensus_tokens.toLocaleString()} tokens`);
+    }
+    if (typeof timings.consensus_check_ms === 'number') {
+      consensusParts.push(this.formatDuration(timings.consensus_check_ms));
+    }
+    if (consensusParts.length > 0) {
+      console.log(chalk.gray(`${this.formatLabel('Usage')} Codex: ${consensusParts.join(' | ')}`));
+    }
+
+    console.log(chalk.gray(`${this.formatLabel('Round')} Total: ${this.formatDuration(timings.round_total_ms)}`));
     console.log();
+
+    this.totalCodexMs += timings.codex_review_ms ?? 0;
+    this.totalClaudeMs += timings.claude_response_ms ?? 0;
+    this.totalConsensusMs += timings.consensus_check_ms ?? 0;
+    this.totalRoundMs += timings.round_total_ms;
+    if (typeof timings.codex_total_tokens === 'number') {
+      this.totalCodexTokens += timings.codex_total_tokens;
+    }
+    if (typeof timings.claude_total_tokens === 'number') {
+      this.totalClaudeTokens += timings.claude_total_tokens;
+    }
   }
 
   private showComplete(event: QuibbleEvent & { type: 'complete' }): void {
@@ -271,16 +306,43 @@ export class Display {
     const timeStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 
     console.log(chalk.gray('='.repeat(47)));
-    console.log(chalk.bold('Summary'));
-    console.log(chalk.gray('-'.repeat(7)));
-    console.log(`Rounds: ${event.total_rounds}`);
+    console.log();
+    console.log(`${this.formatLabel('Summary')} Rounds: ${event.total_rounds}`);
     console.log(
-      `Issues resolved: ${event.statistics.issues_resolved}/${event.statistics.total_issues_raised}`
+      `${this.formatLabel('Summary')} Issues resolved: ${event.statistics.issues_resolved}/${event.statistics.total_issues_raised}`
     );
     console.log(
-      `Opportunities accepted: ${event.statistics.opportunities_accepted}/${event.statistics.total_opportunities_raised}`
+      `${this.formatLabel('Summary')} Opportunities accepted: ${event.statistics.opportunities_accepted}/${event.statistics.total_opportunities_raised}`
     );
-    console.log(`Time elapsed: ${timeStr}`);
+
+    const sessionParts: string[] = [];
+    if (this.totalCodexMs > 0) {
+      sessionParts.push(`Codex ${this.formatDuration(this.totalCodexMs)}`);
+    }
+    if (this.totalClaudeMs > 0) {
+      sessionParts.push(`Claude ${this.formatDuration(this.totalClaudeMs)}`);
+    }
+    if (this.totalConsensusMs > 0) {
+      sessionParts.push(`Consensus ${this.formatDuration(this.totalConsensusMs)}`);
+    }
+    if (sessionParts.length > 0) {
+      const sessionTotal = this.formatDuration(this.totalRoundMs);
+      console.log(`${this.formatLabel('Summary')} Session total: ${sessionTotal}`);
+    } else {
+      console.log(`${this.formatLabel('Summary')} Time elapsed: ${timeStr}`);
+    }
+
+    const sessionUsage: string[] = [];
+    if (this.totalCodexTokens > 0) {
+      sessionUsage.push(`Codex ${this.totalCodexTokens.toLocaleString()}`);
+    }
+    if (this.totalClaudeTokens > 0) {
+      sessionUsage.push(`Claude ${this.totalClaudeTokens.toLocaleString()}`);
+    }
+    if (sessionUsage.length > 0) {
+      console.log(`${this.formatLabel('Summary')} Session usage: ${sessionUsage.join(' | ')}`);
+    }
+
     console.log();
     console.log(`Output written to: ${chalk.cyan(event.output_file)}`);
     console.log(`Session saved to: ${chalk.gray(event.session_id)}`);
@@ -291,6 +353,38 @@ export class Display {
     } else if (event.status === 'max_rounds_reached_warning') {
       console.log(chalk.yellow('Warning: Major issues remain unresolved'));
     }
+  }
+
+  private formatDuration(durationMs: number): string {
+    const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
+  }
+
+  private showStepUsage(
+    label: string,
+    startTime: number | null,
+    tokenCount: number | null
+  ): void {
+    const elapsedMs = startTime ? Date.now() - startTime : null;
+    const parts: string[] = [];
+    if (typeof tokenCount === 'number') {
+      parts.push(`${tokenCount.toLocaleString()} tokens`);
+    }
+    if (elapsedMs !== null) {
+      parts.push(this.formatDuration(elapsedMs));
+    }
+    if (parts.length > 0) {
+      console.log(chalk.gray(`${this.formatLabel('Usage')} ${label}: ${parts.join(' | ')}`));
+    }
+  }
+
+  private formatLabel(label: string): string {
+    return `[${label}]`.padEnd(this.labelWidth, ' ');
   }
 
   private showError(event: QuibbleEvent & { type: 'error' }): void {
