@@ -215,7 +215,7 @@ function resolveReferences(
 
 function isWithinRoot(candidate: string, repoRoot: string): boolean {
   const relative = path.relative(repoRoot, candidate);
-  return relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+  return relative.length > 0 && !relative.startsWith('..') && !path.isAbsolute(relative);
 }
 
 function shouldIgnore(relativePath: string): boolean {
