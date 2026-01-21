@@ -5,7 +5,6 @@ import { withRetry, isTransientError } from '../utils/retry.js';
 export interface ClientOptions {
   workingDirectory: string;
   timeoutMs: number;
-  verbose: boolean;
 }
 
 export type StreamingCallback = (line: string) => void;
@@ -17,7 +16,6 @@ export abstract class BaseClient {
     this.options = {
       workingDirectory: process.cwd(),
       timeoutMs: 15 * 60 * 1000, // 15 minutes - Opus needs more time for complex prompts
-      verbose: false,
       ...options,
     };
   }

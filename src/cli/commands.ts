@@ -23,7 +23,6 @@ export function run(argv: string[]): void {
     .option('--context-max-file-bytes <n>', 'Max bytes per context file')
     .option('--context-max-total-bytes <n>', 'Max total bytes across context files')
     .option('--output <path>', 'Output path for final document')
-    .option('--verbose', 'Show detailed progress', false)
     .option('--dry-run', 'Show what would happen without executing', false)
     .option('--json', 'Output structured JSON for CI/automation', false)
     .option('--no-persist', 'Disable session storage; runs in-memory only')
@@ -70,7 +69,6 @@ export function run(argv: string[]): void {
 async function execute(config: QuibbleConfig): Promise<number> {
   const display = new Display({
     jsonMode: config.jsonOutput,
-    verbose: config.verbose,
   });
 
   const events = new EventEmitter();
@@ -133,7 +131,6 @@ interface RawCliOptions {
   contextMaxFiles?: string;
   contextMaxFileBytes?: string;
   contextMaxTotalBytes?: string;
-  verbose: boolean;
   dryRun: boolean;
   json: boolean;
   persist: boolean;  // Note: Commander inverts --no-persist to persist: false

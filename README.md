@@ -57,7 +57,6 @@ quibble docs/plan.md
 --output <path>    Output path for final document
 --resume <id>      Resume a previous session by ID
 --session-dir <p>  Override session storage location
---verbose          Show detailed progress
 ```
 
 ## How It Works
@@ -72,7 +71,7 @@ The loop stops when consensus is approved, the max rounds are reached, or a fail
 
 ## Context Discovery
 
-Quibble auto-includes repo files referenced by path in the document. It looks for file path mentions and pulls the matching files as context for Codex and Claude, with size caps and skipping common build/output directories. Use `--verbose` to see which files were pulled in.
+Quibble auto-includes repo files referenced by path in the document. It looks for file path mentions and pulls the matching files as context for Codex and Claude, with size caps and skipping common build/output directories.
 
 ## Output Files
 

@@ -9,7 +9,6 @@ export interface QuibbleConfig {
   contextMaxFiles?: number;
   contextMaxFileBytes?: number;
   contextMaxTotalBytes?: number;
-  verbose: boolean;
   dryRun: boolean;
   jsonOutput: boolean;
   persist: boolean;
@@ -26,7 +25,6 @@ interface RawOptions {
   contextMaxFiles?: string;
   contextMaxFileBytes?: string;
   contextMaxTotalBytes?: string;
-  verbose: boolean;
   dryRun: boolean;
   json: boolean;
   persist: boolean;
@@ -104,7 +102,6 @@ export function resolveConfig(inputFile: string, options: RawOptions): QuibbleCo
     contextMaxFiles,
     contextMaxFileBytes,
     contextMaxTotalBytes,
-    verbose: options.verbose,
     dryRun: options.dryRun,
     jsonOutput: options.json,
     persist: options.persist,

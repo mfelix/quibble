@@ -32,11 +32,9 @@ export class Orchestrator {
   ) {
     this.codexClient = new CodexClient({
       workingDirectory: process.cwd(),
-      verbose: config.verbose,
     });
     this.claudeClient = new ClaudeClient({
       workingDirectory: process.cwd(),
-      verbose: config.verbose,
     });
     this.debugClaudeDir = options.debugClaudeDir;
     this.debugCodexDir = options.debugCodexDir;

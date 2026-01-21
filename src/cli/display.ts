@@ -7,7 +7,6 @@ export class Display {
   private labelWidth: number = 12;
   private spinner: Ora | null = null;
   private jsonMode: boolean;
-  private verbose: boolean;
   private startTime: number = Date.now();
   private claudeProgressBuffer: string = '';
   private lastProgressUpdate: number = 0;
@@ -28,9 +27,8 @@ export class Display {
   private totalCodexTokens: number = 0;
   private totalClaudeTokens: number = 0;
 
-  constructor(options: { jsonMode: boolean; verbose: boolean }) {
+  constructor(options: { jsonMode: boolean }) {
     this.jsonMode = options.jsonMode;
-    this.verbose = options.verbose;
   }
 
   handleEvent(event: QuibbleEvent): void {
@@ -185,8 +183,6 @@ export class Display {
   }
 
   private showContext(event: QuibbleEvent & { type: 'context' }): void {
-    if (!this.verbose) return;
-
     const totalKb = Math.ceil(event.total_bytes / 1024);
     const fileList = event.files.map((file) => {
       const suffix = file.truncated ? ' (truncated)' : '';
@@ -281,7 +277,7 @@ export class Display {
       consensusParts.push(this.formatDuration(timings.consensus_check_ms));
     }
     if (consensusParts.length > 0) {
-      console.log(chalk.gray(`${this.formatLabel('Usage')} Codex: ${consensusParts.join(' | ')}`));
+      console.log(chalk.gray(`${this.formatLabel('Usage')} Codex: ${consensusParts.join(' · ')}`));
     }
 
     console.log(chalk.gray(`${this.formatLabel('Round')} Total: ${this.formatDuration(timings.round_total_ms)}`));
@@ -340,7 +336,7 @@ export class Display {
       sessionUsage.push(`Claude ${this.totalClaudeTokens.toLocaleString()}`);
     }
     if (sessionUsage.length > 0) {
-      console.log(`${this.formatLabel('Summary')} Session usage: ${sessionUsage.join(' | ')}`);
+      console.log(`${this.formatLabel('Summary')} Session usage: ${sessionUsage.join(' · ')}`);
     }
 
     console.log();
@@ -379,7 +375,7 @@ export class Display {
       parts.push(this.formatDuration(elapsedMs));
     }
     if (parts.length > 0) {
-      console.log(chalk.gray(`${this.formatLabel('Usage')} ${label}: ${parts.join(' | ')}`));
+      console.log(chalk.gray(`${this.formatLabel('Usage')} ${label}: ${parts.join(' · ')}`));
     }
   }
 
