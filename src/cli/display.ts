@@ -39,6 +39,9 @@ export class Display {
       case 'round_start':
         this.showRoundStart(event.round);
         break;
+      case 'context':
+        this.showContext(event);
+        break;
       case 'codex_review':
         this.stopSpinner();
         this.showCodexReview(event);
@@ -174,6 +177,27 @@ export class Display {
     );
     console.log();
     this.startClaudeSpinner();
+  }
+
+  private showContext(event: QuibbleEvent & { type: 'context' }): void {
+    if (!this.verbose) return;
+
+    const totalKb = Math.ceil(event.total_bytes / 1024);
+    const fileList = event.files.map((file) => {
+      const suffix = file.truncated ? ' (truncated)' : '';
+      return `${file.path}${suffix}`;
+    });
+    const shown = fileList.slice(0, 6);
+    const remaining = fileList.length - shown.length;
+    const line = remaining > 0
+      ? `${shown.join(', ')} (+${remaining} more)`
+      : shown.join(', ');
+
+    console.log(chalk.gray(`[Context] Included ${event.files.length} files (${totalKb} KB)`));
+    if (line) {
+      console.log(chalk.gray(`[Context] ${line}`));
+    }
+    console.log();
   }
 
   private showClaudeResponse(event: QuibbleEvent & { type: 'claude_response' }): void {

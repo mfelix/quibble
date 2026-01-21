@@ -38,6 +38,8 @@ For each issue or opportunity, be SPECIFIC:
 - Explain WHY it's a problem with concrete reasoning
 - Suggest a fix or improvement when possible
 
+If <repo_context> is provided, use it to validate claims and avoid speculation.
+
 Rate severity honestly:
 - critical: Would cause production incidents, security breaches, or major rework
 - major: Significant problems that need addressing before implementation
@@ -69,12 +71,14 @@ Output your review wrapped in sentinel markers, in this exact format:
 }
 <<<QUIBBLE_JSON_END>>>`;
 
-export function buildCodexReviewPrompt(documentContent: string): string {
+export function buildCodexReviewPrompt(documentContent: string, contextBlock?: string): string {
+  const sections = [];
+  if (contextBlock) sections.push(contextBlock);
+  sections.push(`<document>\n${documentContent}\n</document>`);
+
   return `Please review the following technical document and provide your critical assessment.
 
-<document>
-${documentContent}
-</document>
+${sections.join('\n\n')}
 
 Respond with JSON wrapped in <<<QUIBBLE_JSON_START>>> and <<<QUIBBLE_JSON_END>>> markers. No other text.`;
 }

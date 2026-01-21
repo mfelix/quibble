@@ -5,6 +5,7 @@ import type { SessionManager } from '../state/session.js';
 import type { EventEmitter } from './events.js';
 import { CodexClient } from './codex-client.js';
 import { ClaudeClient } from './claude-client.js';
+import { buildContext } from '../context/collector.js';
 import type { CodexReview, ClaudeResponse, CodexConsensus, SessionStatus } from '../types/index.js';
 
 export interface OrchestratorResult {
@@ -66,11 +67,21 @@ export class Orchestrator {
       this.events.emitRoundStart(currentRound);
       await this.session.startRound(currentRound);
 
+      const contextResult = await buildContext(this.currentDocument, this.config.inputFile, {
+        maxFiles: this.config.contextMaxFiles,
+        maxFileBytes: this.config.contextMaxFileBytes,
+        maxTotalBytes: this.config.contextMaxTotalBytes,
+      });
+      const contextBlock = contextResult?.block ?? null;
+      if (contextResult) {
+        this.events.emitContext(currentRound, contextResult.files, contextResult.totalBytes);
+      }
+
       // Phase 1: Codex Review
       let codexReview: CodexReview;
       if (currentPhase === 'codex_review' || currentPhase === 'pending') {
         await this.session.setPhase('codex_review');
-        codexReview = await this.runCodexReview(currentRound);
+        codexReview = await this.runCodexReview(currentRound, contextBlock);
         currentPhase = 'claude_response';
       } else {
         codexReview = (await this.session.loadCodexReview(currentRound))!;
@@ -87,7 +98,7 @@ export class Orchestrator {
       let claudeResponse: ClaudeResponse;
       if (currentPhase === 'claude_response') {
         await this.session.setPhase('claude_response');
-        claudeResponse = await this.runClaudeResponse(currentRound, codexReview);
+        claudeResponse = await this.runClaudeResponse(currentRound, codexReview, contextBlock);
         currentPhase = 'consensus_check';
       } else {
         claudeResponse = (await this.session.loadClaudeResponse(currentRound))!;
@@ -101,7 +112,12 @@ export class Orchestrator {
         await this.session.setPhase('consensus_check');
 
         if (claudeResponse.consensus_assessment.reached) {
-          const consensus = await this.runConsensusCheck(currentRound, codexReview, claudeResponse);
+          const consensus = await this.runConsensusCheck(
+            currentRound,
+            codexReview,
+            claudeResponse,
+            contextBlock
+          );
 
           if (consensus.verdict === 'approve') {
             this.events.emitConsensus(currentRound, true, []);
@@ -126,12 +142,13 @@ export class Orchestrator {
     return this.terminate(this.determineMaxRoundsStatus(), currentRound - 1);
   }
 
-  private async runCodexReview(round: number): Promise<CodexReview> {
+  private async runCodexReview(round: number, contextBlock?: string | null): Promise<CodexReview> {
     const debugPath = this.debugCodexDir
       ? path.join(this.debugCodexDir, `codex-stream-round-${round}.log`)
       : undefined;
     const review = await this.codexClient.review(
       this.currentDocument,
+      contextBlock ?? undefined,
       (text, tokenCount, status) => {
         this.events.emitCodexProgress(round, text, tokenCount, status);
       },
@@ -146,13 +163,18 @@ export class Orchestrator {
     return review;
   }
 
-  private async runClaudeResponse(round: number, codexReview: CodexReview): Promise<ClaudeResponse> {
+  private async runClaudeResponse(
+    round: number,
+    codexReview: CodexReview,
+    contextBlock?: string | null
+  ): Promise<ClaudeResponse> {
     const debugPath = this.debugClaudeDir
       ? path.join(this.debugClaudeDir, `claude-stream-round-${round}.log`)
       : undefined;
     const response = await this.claudeClient.respond(
       this.currentDocument,
       JSON.stringify(codexReview, null, 2),
+      contextBlock ?? undefined,
       (text, tokenCount) => {
         this.events.emitClaudeProgress(round, text, tokenCount);
       },
@@ -177,14 +199,16 @@ export class Orchestrator {
   private async runConsensusCheck(
     round: number,
     codexReview: CodexReview,
-    claudeResponse: ClaudeResponse
+    claudeResponse: ClaudeResponse,
+    contextBlock?: string | null
   ): Promise<CodexConsensus> {
     const originalDoc = await fs.promises.readFile(this.config.inputFile, 'utf-8');
     const consensus = await this.codexClient.checkConsensus(
       originalDoc,
       JSON.stringify(codexReview, null, 2),
       JSON.stringify(claudeResponse.responses, null, 2),
-      claudeResponse.updated_document
+      claudeResponse.updated_document,
+      contextBlock ?? undefined
     );
     await this.session.saveConsensusCheck(round, consensus);
     return consensus;

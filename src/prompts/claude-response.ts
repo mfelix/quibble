@@ -32,6 +32,8 @@ After evaluating all feedback, assess whether consensus has been reached:
 - If you've made changes that address the reviewer's core concerns, even if differently than suggested, note this
 - Be honest about remaining disagreements
 
+If <repo_context> is provided, use it to ground your edits and avoid speculation.
+
 Output your response wrapped in sentinel markers, in this exact format:
 
 <<<QUIBBLE_JSON_START>>>
@@ -56,17 +58,17 @@ Output your response wrapped in sentinel markers, in this exact format:
 
 export function buildClaudeResponsePrompt(
   originalDocument: string,
-  codexFeedback: string
+  codexFeedback: string,
+  contextBlock?: string
 ): string {
+  const sections = [];
+  if (contextBlock) sections.push(contextBlock);
+  sections.push(`<original_document>\n${originalDocument}\n</original_document>`);
+  sections.push(`<reviewer_feedback>\n${codexFeedback}\n</reviewer_feedback>`);
+
   return `You are reviewing feedback on a technical document and deciding how to respond.
 
-<original_document>
-${originalDocument}
-</original_document>
-
-<reviewer_feedback>
-${codexFeedback}
-</reviewer_feedback>
+${sections.join('\n\n')}
 
 Evaluate each piece of feedback, apply changes where you agree, and defend your position where you disagree. Then provide the updated document and your consensus assessment.
 

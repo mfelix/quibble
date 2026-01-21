@@ -97,10 +97,11 @@ export class ClaudeClient extends BaseClient {
   async respond(
     originalDocument: string,
     codexFeedback: string,
+    contextBlock?: string,
     onProgress?: ProgressCallback,
     debugStreamPath?: string
   ): Promise<ClaudeResponse> {
-    const prompt = buildClaudeResponsePrompt(originalDocument, codexFeedback);
+    const prompt = buildClaudeResponsePrompt(originalDocument, codexFeedback, contextBlock);
     const output = await this.runClaude(prompt, onProgress, debugStreamPath);
 
     const result = parseCliOutput(output, ClaudeResponseSchema);

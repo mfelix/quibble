@@ -41,6 +41,20 @@ export class EventEmitter {
     });
   }
 
+  emitContext(
+    round: number,
+    files: Array<{ path: string; bytes: number; truncated: boolean }>,
+    totalBytes: number
+  ): void {
+    this.emit({
+      type: 'context',
+      round,
+      files,
+      total_bytes: totalBytes,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   emitCodexReview(
     round: number,
     issues: Array<{ id: string; severity: 'critical' | 'major' | 'minor' }>,

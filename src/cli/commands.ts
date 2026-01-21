@@ -19,6 +19,9 @@ export function run(argv: string[]): void {
     .version(version)
     .argument('<file>', 'Path to markdown file to review')
     .option('--max-rounds <n>', 'Maximum review cycles before forced stop', '5')
+    .option('--context-max-files <n>', 'Max auto-included context files')
+    .option('--context-max-file-bytes <n>', 'Max bytes per context file')
+    .option('--context-max-total-bytes <n>', 'Max total bytes across context files')
     .option('--output <path>', 'Output path for final document')
     .option('--verbose', 'Show detailed progress', false)
     .option('--dry-run', 'Show what would happen without executing', false)
@@ -127,6 +130,9 @@ async function execute(config: QuibbleConfig): Promise<number> {
 interface RawCliOptions {
   maxRounds: string;
   output?: string;
+  contextMaxFiles?: string;
+  contextMaxFileBytes?: string;
+  contextMaxTotalBytes?: string;
   verbose: boolean;
   dryRun: boolean;
   json: boolean;

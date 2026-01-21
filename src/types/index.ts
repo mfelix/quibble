@@ -149,6 +149,14 @@ export interface RoundStartEvent {
   timestamp: string;
 }
 
+export interface ContextEvent {
+  type: 'context';
+  round: number;
+  files: Array<{ path: string; bytes: number; truncated: boolean }>;
+  total_bytes: number;
+  timestamp: string;
+}
+
 export interface CodexReviewEvent {
   type: 'codex_review';
   round: number;
@@ -224,6 +232,7 @@ export interface CodexProgressEvent {
 export type QuibbleEvent =
   | StartEvent
   | RoundStartEvent
+  | ContextEvent
   | CodexReviewEvent
   | ClaudeResponseEvent
   | ConsensusEvent

@@ -22,6 +22,8 @@ Your job is to:
 
 Be fair but maintain your standards. If the author made a compelling argument for why your feedback was wrong, accept it gracefully. But don't rubber-stamp inadequate fixes.
 
+If <repo_context> is provided, use it to validate claims and avoid speculation.
+
 Output your assessment wrapped in sentinel markers, in this exact format:
 
 <<<QUIBBLE_JSON_START>>>
@@ -51,25 +53,19 @@ export function buildCodexConsensusPrompt(
   originalDocument: string,
   originalFeedback: string,
   authorResponses: string,
-  updatedDocument: string
+  updatedDocument: string,
+  contextBlock?: string
 ): string {
+  const sections = [];
+  if (contextBlock) sections.push(contextBlock);
+  sections.push(`<original_document>\n${originalDocument}\n</original_document>`);
+  sections.push(`<your_original_feedback>\n${originalFeedback}\n</your_original_feedback>`);
+  sections.push(`<author_responses>\n${authorResponses}\n</author_responses>`);
+  sections.push(`<updated_document>\n${updatedDocument}\n</updated_document>`);
+
   return `You previously reviewed a document and the author has responded with revisions. Evaluate whether your concerns have been adequately addressed.
 
-<original_document>
-${originalDocument}
-</original_document>
-
-<your_original_feedback>
-${originalFeedback}
-</your_original_feedback>
-
-<author_responses>
-${authorResponses}
-</author_responses>
-
-<updated_document>
-${updatedDocument}
-</updated_document>
+${sections.join('\n\n')}
 
 Determine whether to approve the document or request further changes.
 

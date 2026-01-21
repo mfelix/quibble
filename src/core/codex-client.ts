@@ -22,10 +22,11 @@ export class CodexClient extends BaseClient {
 
   async review(
     documentContent: string,
+    contextBlock?: string,
     onProgress?: (text: string, tokenCount: number | null, status?: string) => void,
     debugStreamPath?: string
   ): Promise<CodexReview> {
-    const prompt = buildCodexReviewPrompt(documentContent);
+    const prompt = buildCodexReviewPrompt(documentContent, contextBlock);
     const output = await this.runCodex(prompt, CODEX_REVIEW_SYSTEM_PROMPT, onProgress, debugStreamPath);
 
     const result = parseCliOutput(output, CodexReviewSchema);
@@ -41,13 +42,15 @@ export class CodexClient extends BaseClient {
     originalDocument: string,
     originalFeedback: string,
     authorResponses: string,
-    updatedDocument: string
+    updatedDocument: string,
+    contextBlock?: string
   ): Promise<CodexConsensus> {
     const prompt = buildCodexConsensusPrompt(
       originalDocument,
       originalFeedback,
       authorResponses,
-      updatedDocument
+      updatedDocument,
+      contextBlock
     );
     const output = await this.runCodex(prompt, CODEX_CONSENSUS_SYSTEM_PROMPT);
 

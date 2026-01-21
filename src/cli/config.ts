@@ -6,6 +6,9 @@ export interface QuibbleConfig {
   inputFile: string;
   outputFile: string;
   maxRounds: number;
+  contextMaxFiles?: number;
+  contextMaxFileBytes?: number;
+  contextMaxTotalBytes?: number;
   verbose: boolean;
   dryRun: boolean;
   jsonOutput: boolean;
@@ -20,6 +23,9 @@ export interface QuibbleConfig {
 interface RawOptions {
   maxRounds: string;
   output?: string;
+  contextMaxFiles?: string;
+  contextMaxFileBytes?: string;
+  contextMaxTotalBytes?: string;
   verbose: boolean;
   dryRun: boolean;
   json: boolean;
@@ -75,6 +81,16 @@ export function resolveConfig(inputFile: string, options: RawOptions): QuibbleCo
     throw new Error('--max-rounds must be a positive integer');
   }
 
+  const contextMaxFiles = parseOptionalPositiveInt(options.contextMaxFiles, '--context-max-files');
+  const contextMaxFileBytes = parseOptionalPositiveInt(
+    options.contextMaxFileBytes,
+    '--context-max-file-bytes'
+  );
+  const contextMaxTotalBytes = parseOptionalPositiveInt(
+    options.contextMaxTotalBytes,
+    '--context-max-total-bytes'
+  );
+
   // Resolve output file
   const outputFile = options.output ?? deriveOutputPath(absoluteInput);
 
@@ -85,6 +101,9 @@ export function resolveConfig(inputFile: string, options: RawOptions): QuibbleCo
     inputFile: absoluteInput,
     outputFile: path.resolve(outputFile),
     maxRounds,
+    contextMaxFiles,
+    contextMaxFileBytes,
+    contextMaxTotalBytes,
     verbose: options.verbose,
     dryRun: options.dryRun,
     jsonOutput: options.json,
@@ -121,4 +140,13 @@ function resolveSessionDir(inputFile: string, override?: string, persist?: boole
 
   // Fall back to input file directory
   return path.join(path.dirname(inputFile), '.quibble');
+}
+
+function parseOptionalPositiveInt(value: string | undefined, flag: string): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = parseInt(value, 10);
+  if (isNaN(parsed) || parsed < 1) {
+    throw new Error(`${flag} must be a positive integer`);
+  }
+  return parsed;
 }

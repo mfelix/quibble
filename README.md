@@ -48,6 +48,9 @@ quibble docs/plan.md
 --debug-claude     Log raw Claude stream lines for debugging
 --debug-codex      Log raw Codex stream lines for debugging
 --dry-run          Show resolved config and exit
+--context-max-files <n>       Max auto-included context files
+--context-max-file-bytes <n>  Max bytes per context file
+--context-max-total-bytes <n> Max total bytes across context files
 --keep-debug       Keep debug logs after a successful run
 --max-rounds <n>   Maximum review cycles before forced stop (default: 5)
 --no-persist       Disable session storage; runs in-memory only
@@ -66,6 +69,10 @@ Each round has three phases:
 3. Codex checks whether the response resolves the feedback.
 
 The loop stops when consensus is approved, the max rounds are reached, or a failure occurs.
+
+## Context Discovery
+
+Quibble auto-includes repo files referenced by path in the document. It looks for file path mentions and pulls the matching files as context for Codex and Claude, with size caps and skipping common build/output directories. Use `--verbose` to see which files were pulled in.
 
 ## Output Files
 
