@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.quibble/
+.claude/
+.agent/
+*.log
+.DS_Store
