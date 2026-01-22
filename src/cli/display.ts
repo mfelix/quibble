@@ -84,6 +84,10 @@ export class Display {
   }
 
   private showClaudeProgress(event: QuibbleEvent & { type: 'claude_progress' }): void {
+    if (this.claudeStartTime === null) {
+      this.stopSpinner();
+      this.startClaudeSpinner();
+    }
     this.claudeProgressBuffer += event.text;
     this.claudeTokenCount = event.token_count;
     this.claudeTokenEstimated = event.token_estimated ?? false;

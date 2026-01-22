@@ -38,7 +38,10 @@ export const FeedbackResponseSchema = z.object({
   feedback_id: z.string(),
   verdict: z.enum(['agree', 'disagree', 'partial']),
   reasoning: z.string(),
-  action_taken: z.string(),
+  action_taken: z.preprocess(
+    (value) => (value == null ? '' : value),
+    z.string()
+  ),
 });
 
 export const ConsensusAssessmentSchema = z.object({

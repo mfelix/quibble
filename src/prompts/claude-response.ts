@@ -43,7 +43,7 @@ Output your response wrapped in sentinel markers, in this exact format:
       "feedback_id": "issue-1",
       "verdict": "agree|disagree|partial",
       "reasoning": "Why you agree/disagree",
-      "action_taken": "What change was made, if any"
+      "action_taken": "What change was made, if any (use empty string if none)"
     }
   ],
   "updated_document": "The full updated markdown document with all changes applied",
@@ -71,6 +71,8 @@ export function buildClaudeResponsePrompt(
 ${sections.join('\n\n')}
 
 Evaluate each piece of feedback, apply changes where you agree, and defend your position where you disagree. Then provide the updated document and your consensus assessment.
+
+Always include every field in the schema; for "action_taken", use an empty string if no changes were made.
 
 Respond with JSON wrapped in <<<QUIBBLE_JSON_START>>> and <<<QUIBBLE_JSON_END>>> markers. No other text.`;
 }

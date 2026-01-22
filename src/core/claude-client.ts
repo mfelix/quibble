@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import { BaseClient, type ClientOptions, type StreamingCallback } from './base-client.js';
-import { parseCliOutput } from '../utils/parsing.js';
+import { extractJsonValue, parseCliOutput } from '../utils/parsing.js';
 import { ClaudeResponseSchema, type ClaudeResponse } from '../types/index.js';
 import {
   CLAUDE_RESPONSE_SYSTEM_PROMPT,
@@ -165,8 +165,17 @@ export class ClaudeClient extends BaseClient {
 
     const result = parseCliOutput(output, ClaudeResponseSchema);
     if (!result.success) {
-      // One retry with a stricter prompt requiring sentinel-wrapped JSON only.
-      throw new Error(`Failed to parse Claude response: ${result.error}`);
+      const repaired = repairClaudeResponse(output, originalDocument);
+      if (!repaired) {
+        throw new Error(`Failed to parse Claude response: ${result.error}`);
+      }
+
+      const repairedResult = ClaudeResponseSchema.safeParse(repaired);
+      if (!repairedResult.success) {
+        throw new Error(`Failed to parse Claude response: ${result.error}`);
+      }
+
+      return repairedResult.data;
     }
 
     return result.data;
@@ -258,4 +267,89 @@ export class ClaudeClient extends BaseClient {
     if (accumulatedText) return accumulatedText;
     return stdout;
   }
+}
+
+function repairClaudeResponse(output: string, originalDocument: string): unknown | null {
+  const parsed = extractJsonValue(output);
+  if (!parsed || typeof parsed !== 'object') return null;
+  const record = parsed as Record<string, unknown>;
+
+  const responses = Array.isArray(record.responses) ? record.responses : [];
+  const repairedResponses = responses.map((response, index) => {
+    const item = typeof response === 'object' && response ? (response as Record<string, unknown>) : {};
+    const feedbackId = typeof item.feedback_id === 'string' && item.feedback_id.trim()
+      ? item.feedback_id
+      : `unknown-${index + 1}`;
+    const verdict = normalizeVerdict(item.verdict);
+    const reasoning = typeof item.reasoning === 'string' ? item.reasoning : '';
+    const actionTaken = typeof item.action_taken === 'string' ? item.action_taken : '';
+    return {
+      feedback_id: feedbackId,
+      verdict,
+      reasoning,
+      action_taken: actionTaken,
+    };
+  });
+
+  const updatedDocument = typeof record.updated_document === 'string'
+    ? record.updated_document
+    : originalDocument;
+
+  const consensus = typeof record.consensus_assessment === 'object' && record.consensus_assessment
+    ? (record.consensus_assessment as Record<string, unknown>)
+    : {};
+  const reached = normalizeBoolean(consensus.reached);
+  const outstanding = normalizeStringArray(consensus.outstanding_disagreements);
+  const confidence = normalizeConfidence(consensus.confidence);
+  const summary = typeof consensus.summary === 'string' ? consensus.summary : '';
+
+  return {
+    responses: repairedResponses,
+    updated_document: updatedDocument,
+    consensus_assessment: {
+      reached,
+      outstanding_disagreements: outstanding,
+      confidence,
+      summary,
+    },
+  };
+}
+
+function normalizeVerdict(value: unknown): 'agree' | 'disagree' | 'partial' {
+  if (value === 'agree' || value === 'disagree' || value === 'partial') {
+    return value;
+  }
+  return 'partial';
+}
+
+function normalizeBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const lowered = value.toLowerCase();
+    if (lowered === 'true') return true;
+    if (lowered === 'false') return false;
+  }
+  return false;
+}
+
+function normalizeConfidence(value: unknown): number {
+  const numeric = typeof value === 'number'
+    ? value
+    : typeof value === 'string'
+      ? Number.parseFloat(value)
+      : Number.NaN;
+  if (Number.isNaN(numeric)) return 0;
+  if (numeric < 0) return 0;
+  if (numeric > 1) return 1;
+  return numeric;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string');
+  }
+  if (typeof value === 'string') {
+    return [value];
+  }
+  return [];
 }

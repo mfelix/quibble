@@ -22,8 +22,35 @@ export type ParseResult<T> = {
  */
 export function parseCliOutput<T>(
   output: string,
-  schema: z.ZodSchema<T>
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>
 ): ParseResult<T> {
+  const parsed = extractJsonValue(output);
+
+  if (!parsed) {
+    return {
+      success: false,
+      error: 'Failed to extract valid JSON from output',
+      rawContent: output,
+    };
+  }
+
+  // Step 5: Validate against schema
+  const result = schema.safeParse(parsed);
+  if (!result.success) {
+    return {
+      success: false,
+      error: `Schema validation failed: ${result.error.message}`,
+      rawContent: output,
+    };
+  }
+
+  return {
+    success: true,
+    data: result.data,
+  };
+}
+
+export function extractJsonValue(output: string): unknown | null {
   // Step 1: Try sentinel extraction
   let jsonContent = extractBetweenSentinels(output);
 
@@ -51,28 +78,7 @@ export function parseCliOutput<T>(
     }
   }
 
-  if (!parsed) {
-    return {
-      success: false,
-      error: 'Failed to extract valid JSON from output',
-      rawContent: output,
-    };
-  }
-
-  // Step 5: Validate against schema
-  const result = schema.safeParse(parsed);
-  if (!result.success) {
-    return {
-      success: false,
-      error: `Schema validation failed: ${result.error.message}`,
-      rawContent: output,
-    };
-  }
-
-  return {
-    success: true,
-    data: result.data,
-  };
+  return parsed ?? null;
 }
 
 function extractBetweenSentinels(content: string): string | null {
