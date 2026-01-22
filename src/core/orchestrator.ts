@@ -105,11 +105,13 @@ export class Orchestrator {
       // Phase 2: Claude Response
       let claudeResponse: ClaudeResponse;
       let claudeTokenCount: number | undefined;
+      let claudeTokenEstimated = false;
       const claudeStartMs = Date.now();
       if (currentPhase === 'claude_response') {
         await this.session.setPhase('claude_response');
-        claudeResponse = await this.runClaudeResponse(currentRound, codexReview, contextBlock, (tokens) => {
+        claudeResponse = await this.runClaudeResponse(currentRound, codexReview, contextBlock, (tokens, isEstimated) => {
           claudeTokenCount = tokens;
+          claudeTokenEstimated = isEstimated;
         });
         currentPhase = 'consensus_check';
       } else {
@@ -146,6 +148,7 @@ export class Orchestrator {
               consensus_check_ms: consensusDurationMs,
               codex_review_tokens: codexTokenCount,
               claude_response_tokens: claudeTokenCount,
+              claude_response_tokens_estimated: claudeTokenEstimated,
               codex_consensus_tokens: consensusTokenCount,
             });
             return this.terminate('completed', currentRound);
@@ -158,6 +161,7 @@ export class Orchestrator {
             consensus_check_ms: consensusDurationMs,
             codex_review_tokens: codexTokenCount,
             claude_response_tokens: claudeTokenCount,
+            claude_response_tokens_estimated: claudeTokenEstimated,
             codex_consensus_tokens: consensusTokenCount,
           });
         } else {
@@ -171,6 +175,7 @@ export class Orchestrator {
             claude_response_ms: claudeDurationMs,
             codex_review_tokens: codexTokenCount,
             claude_response_tokens: claudeTokenCount,
+            claude_response_tokens_estimated: claudeTokenEstimated,
           });
         }
       }
@@ -215,7 +220,7 @@ export class Orchestrator {
     round: number,
     codexReview: CodexReview,
     contextBlock?: string | null,
-    onTokens?: (tokens: number) => void
+    onTokens?: (tokens: number, isEstimated: boolean) => void
   ): Promise<ClaudeResponse> {
     const debugPath = this.debugClaudeDir
       ? path.join(this.debugClaudeDir, `claude-stream-round-${round}.log`)
@@ -224,9 +229,9 @@ export class Orchestrator {
       this.currentDocument,
       JSON.stringify(codexReview, null, 2),
       contextBlock ?? undefined,
-      (text, tokenCount) => {
-        onTokens?.(tokenCount);
-        this.events.emitClaudeProgress(round, text, tokenCount);
+      (text, tokenCount, isEstimated) => {
+        onTokens?.(tokenCount, isEstimated ?? false);
+        this.events.emitClaudeProgress(round, text, tokenCount, isEstimated);
       },
       debugPath
     );
@@ -243,6 +248,37 @@ export class Orchestrator {
     }
 
     this.events.emitClaudeResponse(round, agreed, disputed, partial);
+    const verdictById = new Map(response.responses.map(r => [r.feedback_id, r.verdict]));
+    let summariesById: Map<string, string> | null = null;
+
+    if (this.config.summarizeItems) {
+      try {
+        const summaries = await this.codexClient.summarizeItems(
+          codexReview.issues
+            .map((issue) => ({ id: issue.id, description: issue.description }))
+            .concat(codexReview.opportunities.map((opp) => ({ id: opp.id, description: opp.description })))
+        );
+        summariesById = new Map(summaries.summaries.map((item) => [item.id, item.summary]));
+      } catch {
+        summariesById = null;
+      }
+    }
+
+    this.events.emitRoundItems(
+      round,
+      codexReview.issues.map((issue) => ({
+        id: issue.id,
+        severity: issue.severity,
+        description: summariesById?.get(issue.id) ?? issue.description,
+        verdict: verdictById.get(issue.id) ?? 'unknown',
+      })),
+      codexReview.opportunities.map((opp) => ({
+        id: opp.id,
+        impact: opp.impact,
+        description: summariesById?.get(opp.id) ?? opp.description,
+        verdict: verdictById.get(opp.id) ?? 'unknown',
+      }))
+    );
     return response;
   }
 
@@ -391,6 +427,7 @@ export class Orchestrator {
       consensus_check_ms: phaseTimings.consensus_check_ms,
       codex_review_tokens: phaseTimings.codex_review_tokens,
       claude_response_tokens: phaseTimings.claude_response_tokens,
+      claude_response_tokens_estimated: phaseTimings.claude_response_tokens_estimated,
       codex_consensus_tokens: phaseTimings.codex_consensus_tokens,
       codex_total_tokens: hasCodexTokens
         ? (phaseTimings.codex_review_tokens ?? 0) + (phaseTimings.codex_consensus_tokens ?? 0)

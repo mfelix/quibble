@@ -7,7 +7,7 @@ import {
   buildClaudeResponsePrompt,
 } from '../prompts/index.js';
 
-export type ProgressCallback = (text: string, tokenCount: number) => void;
+export type ProgressCallback = (text: string, tokenCount: number, isEstimated?: boolean) => void;
 
 interface StreamEvent {
   type: 'delta';
@@ -192,6 +192,7 @@ export class ClaudeClient extends BaseClient {
     // Use streaming mode with JSONL output
     let accumulatedText = '';
     let tokenCount = 0;
+    let usingEstimatedTokens = true;
     let finalResult: string | null = null;
     const debugStream = debugStreamPath
       ? fs.createWriteStream(debugStreamPath, { flags: 'a' })
@@ -208,19 +209,22 @@ export class ClaudeClient extends BaseClient {
         accumulatedText += parsed.text;
         if (typeof parsed.usageTokens === 'number') {
           tokenCount = parsed.usageTokens;
+          usingEstimatedTokens = false;
         } else {
           tokenCount++;
         }
-        onProgress(parsed.text, tokenCount);
+        onProgress(parsed.text, tokenCount, usingEstimatedTokens);
       } else if (parsed.type === 'result') {
         finalResult = parsed.text;
         if (typeof parsed.usageTokens === 'number') {
           tokenCount = parsed.usageTokens;
-          onProgress('', tokenCount);
+          usingEstimatedTokens = false;
+          onProgress('', tokenCount, usingEstimatedTokens);
         }
       } else if (parsed.type === 'usage') {
         tokenCount = parsed.usageTokens;
-        onProgress('', tokenCount);
+        usingEstimatedTokens = false;
+        onProgress('', tokenCount, usingEstimatedTokens);
       }
     };
 

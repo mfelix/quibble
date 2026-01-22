@@ -4,12 +4,21 @@ import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'node:fs';
 import { BaseClient, type ClientOptions, type StreamingCallback } from './base-client.js';
 import { parseCliOutput, extractCodexAssistantMessage } from '../utils/parsing.js';
-import { CodexReviewSchema, CodexConsensusSchema, type CodexReview, type CodexConsensus } from '../types/index.js';
+import {
+  CodexReviewSchema,
+  CodexConsensusSchema,
+  SummariesSchema,
+  type CodexReview,
+  type CodexConsensus,
+  type Summaries,
+} from '../types/index.js';
 import {
   CODEX_REVIEW_SYSTEM_PROMPT,
   buildCodexReviewPrompt,
   CODEX_CONSENSUS_SYSTEM_PROMPT,
   buildCodexConsensusPrompt,
+  CODEX_SUMMARIZE_SYSTEM_PROMPT,
+  buildCodexSummarizePrompt,
 } from '../prompts/index.js';
 
 export class CodexClient extends BaseClient {
@@ -59,6 +68,20 @@ export class CodexClient extends BaseClient {
     if (!result.success) {
       // One retry with a stricter prompt requiring sentinel-wrapped JSON only.
       throw new Error(`Failed to parse Codex consensus: ${result.error}`);
+    }
+
+    return result.data;
+  }
+
+  async summarizeItems(
+    items: Array<{ id: string; description: string }>
+  ): Promise<Summaries> {
+    const prompt = buildCodexSummarizePrompt(items);
+    const output = await this.runCodex(prompt, CODEX_SUMMARIZE_SYSTEM_PROMPT);
+
+    const result = parseCliOutput(output, SummariesSchema);
+    if (!result.success) {
+      throw new Error(`Failed to parse Codex summaries: ${result.error}`);
     }
 
     return result.data;

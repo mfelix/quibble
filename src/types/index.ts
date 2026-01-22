@@ -86,6 +86,18 @@ export type ResolutionStatus = z.infer<typeof ResolutionStatusSchema>;
 export type FeedbackResolution = z.infer<typeof FeedbackResolutionSchema>;
 export type CodexConsensus = z.infer<typeof CodexConsensusSchema>;
 
+export const SummaryItemSchema = z.object({
+  id: z.string(),
+  summary: z.string(),
+});
+
+export const SummariesSchema = z.object({
+  summaries: z.array(SummaryItemSchema),
+});
+
+export type SummaryItem = z.infer<typeof SummaryItemSchema>;
+export type Summaries = z.infer<typeof SummariesSchema>;
+
 // ============================================================
 // Session & State Types
 // ============================================================
@@ -155,6 +167,7 @@ export interface RoundTimings {
   consensus_check_ms?: number;
   codex_review_tokens?: number;
   claude_response_tokens?: number;
+  claude_response_tokens_estimated?: boolean;
   codex_consensus_tokens?: number;
   codex_total_tokens?: number;
   claude_total_tokens?: number;
@@ -174,6 +187,24 @@ export interface ContextEvent {
   round: number;
   files: Array<{ path: string; bytes: number; truncated: boolean }>;
   total_bytes: number;
+  timestamp: string;
+}
+
+export interface RoundItemsEvent {
+  type: 'round_items';
+  round: number;
+  issues: Array<{
+    id: string;
+    severity: 'critical' | 'major' | 'minor';
+    description: string;
+    verdict: 'agree' | 'disagree' | 'partial' | 'unknown';
+  }>;
+  opportunities: Array<{
+    id: string;
+    impact: 'high' | 'medium' | 'low';
+    description: string;
+    verdict: 'agree' | 'disagree' | 'partial' | 'unknown';
+  }>;
   timestamp: string;
 }
 
@@ -237,6 +268,7 @@ export interface ClaudeProgressEvent {
   round: number;
   text: string;
   token_count: number;
+  token_estimated?: boolean;
   timestamp: string;
 }
 
@@ -254,6 +286,7 @@ export type QuibbleEvent =
   | RoundStartEvent
   | RoundCompleteEvent
   | ContextEvent
+  | RoundItemsEvent
   | CodexReviewEvent
   | ClaudeResponseEvent
   | ConsensusEvent

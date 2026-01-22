@@ -51,6 +51,7 @@ quibble docs/plan.md
 --context-max-files <n>       Max auto-included context files
 --context-max-file-bytes <n>  Max bytes per context file
 --context-max-total-bytes <n> Max total bytes across context files
+--no-summarize-items          Disable LLM summarization of issues/opportunities
 --keep-debug       Keep debug logs after a successful run
 --max-rounds <n>   Maximum review cycles before forced stop (default: 5)
 --no-persist       Disable session storage; runs in-memory only

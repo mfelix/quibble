@@ -65,6 +65,30 @@ export class EventEmitter {
     });
   }
 
+  emitRoundItems(
+    round: number,
+    issues: Array<{
+      id: string;
+      severity: 'critical' | 'major' | 'minor';
+      description: string;
+      verdict: 'agree' | 'disagree' | 'partial' | 'unknown';
+    }>,
+    opportunities: Array<{
+      id: string;
+      impact: 'high' | 'medium' | 'low';
+      description: string;
+      verdict: 'agree' | 'disagree' | 'partial' | 'unknown';
+    }>
+  ): void {
+    this.emit({
+      type: 'round_items',
+      round,
+      issues,
+      opportunities,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   emitCodexReview(
     round: number,
     issues: Array<{ id: string; severity: 'critical' | 'major' | 'minor' }>,
@@ -152,12 +176,18 @@ export class EventEmitter {
     });
   }
 
-  emitClaudeProgress(round: number, text: string, tokenCount: number): void {
+  emitClaudeProgress(
+    round: number,
+    text: string,
+    tokenCount: number,
+    tokenEstimated?: boolean
+  ): void {
     this.emit({
       type: 'claude_progress',
       round,
       text,
       token_count: tokenCount,
+      token_estimated: tokenEstimated,
       timestamp: new Date().toISOString(),
     });
   }

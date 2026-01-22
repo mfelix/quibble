@@ -1,7 +1,6 @@
 import chalk from 'chalk';
 import ora, { type Ora } from 'ora';
 import type { QuibbleEvent } from '../types/index.js';
-import { version } from './version.js';
 
 export class Display {
   private labelWidth: number = 12;
@@ -14,6 +13,7 @@ export class Display {
   private claudeTimer: NodeJS.Timeout | null = null;
   private claudePreview: string = '';
   private claudeTokenCount: number = 0;
+  private claudeTokenEstimated: boolean = false;
   private codexStartTime: number | null = null;
   private codexTimer: NodeJS.Timeout | null = null;
   private codexProgressBuffer: string = '';
@@ -39,13 +39,16 @@ export class Display {
 
     switch (event.type) {
       case 'start':
-        this.showHeader(event.input_file, event.output_file);
+        this.showHeader();
         break;
       case 'round_start':
         this.showRoundStart(event.round);
         break;
       case 'round_complete':
         this.showRoundComplete(event);
+        break;
+      case 'round_items':
+        this.showRoundItems(event);
         break;
       case 'context':
         this.showContext(event);
@@ -83,6 +86,7 @@ export class Display {
   private showClaudeProgress(event: QuibbleEvent & { type: 'claude_progress' }): void {
     this.claudeProgressBuffer += event.text;
     this.claudeTokenCount = event.token_count;
+    this.claudeTokenEstimated = event.token_estimated ?? false;
 
     // Throttle updates to every 100ms to avoid excessive terminal updates
     const now = Date.now();
@@ -150,7 +154,7 @@ export class Display {
     }
   }
 
-  private showHeader(inputFile: string, outputFile: string): void {
+  private showHeader(): void {
     console.log();
   }
 
@@ -183,6 +187,11 @@ export class Display {
   }
 
   private showContext(event: QuibbleEvent & { type: 'context' }): void {
+    const hadSpinner = Boolean(this.spinner);
+    if (this.spinner) {
+      this.spinner.stop();
+    }
+
     const totalKb = Math.ceil(event.total_bytes / 1024);
     const fileList = event.files.map((file) => {
       const suffix = file.truncated ? ' (truncated)' : '';
@@ -199,6 +208,10 @@ export class Display {
       console.log(chalk.gray(`${this.formatLabel('Context')} ${line}`));
     }
     console.log();
+
+    if (this.spinner && hadSpinner) {
+      this.spinner.start();
+    }
   }
 
   private showClaudeResponse(event: QuibbleEvent & { type: 'claude_response' }): void {
@@ -209,7 +222,7 @@ export class Display {
       console.log(chalk.blue(`${this.formatLabel('Claude')} Partial agreement: ${event.partial.length} items`));
     }
     console.log(chalk.blue(`${this.formatLabel('Claude')} Document updated`));
-    this.showStepUsage('Claude', this.claudeStartTime, this.claudeTokenCount);
+    this.showStepUsage('Claude', this.claudeStartTime, this.claudeTokenCount, this.claudeTokenEstimated);
     console.log();
     this.startSpinner(chalk.magenta('[Consensus] Checking...'));
   }
@@ -218,6 +231,7 @@ export class Display {
     this.claudeStartTime = Date.now();
     this.claudePreview = '';
     this.claudeTokenCount = 0;
+    this.claudeTokenEstimated = false;
     this.startSpinner(chalk.blue('[Claude] Analyzing feedback...'));
     this.updateClaudeSpinner();
     this.claudeTimer = setInterval(() => {
@@ -295,6 +309,48 @@ export class Display {
     }
   }
 
+  private showRoundItems(event: QuibbleEvent & { type: 'round_items' }): void {
+    this.stopSpinner();
+    const allLevels = event.issues
+      .map(issue => this.formatLevel(issue.severity))
+      .concat(event.opportunities.map(opp => this.formatLevel(opp.impact)));
+    const levelWidth = Math.max(4, ...allLevels.map(level => level.length));
+
+    if (event.issues.length > 0) {
+      console.log(chalk.gray('Issues'));
+      this.printItemsTable(
+        event.issues
+          .slice()
+          .sort((a, b) => this.compareSeverity(a.severity, b.severity))
+          .map((issue) => ({
+            level: this.formatLevel(issue.severity),
+            verdict: issue.verdict,
+            description: issue.description,
+          })),
+        levelWidth
+      );
+      console.log();
+    }
+
+    if (event.opportunities.length > 0) {
+      console.log(chalk.gray('Opportunities'));
+      this.printItemsTable(
+        event.opportunities
+          .slice()
+          .sort((a, b) => this.compareImpact(a.impact, b.impact))
+          .map((opp) => ({
+            level: this.formatLevel(opp.impact),
+            verdict: opp.verdict,
+            description: opp.description,
+          })),
+        levelWidth
+      );
+      console.log();
+    }
+
+    this.startSpinner(chalk.magenta('[Consensus] Checking...'));
+  }
+
   private showComplete(event: QuibbleEvent & { type: 'complete' }): void {
     const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
     const minutes = Math.floor(elapsed / 60);
@@ -364,12 +420,14 @@ export class Display {
   private showStepUsage(
     label: string,
     startTime: number | null,
-    tokenCount: number | null
+    tokenCount: number | null,
+    estimated?: boolean
   ): void {
     const elapsedMs = startTime ? Date.now() - startTime : null;
     const parts: string[] = [];
     if (typeof tokenCount === 'number') {
-      parts.push(`${tokenCount.toLocaleString()} tokens`);
+      const suffix = estimated ? '~' : '';
+      parts.push(`${tokenCount.toLocaleString()} tokens${suffix}`);
     }
     if (elapsedMs !== null) {
       parts.push(this.formatDuration(elapsedMs));
@@ -381,6 +439,79 @@ export class Display {
 
   private formatLabel(label: string): string {
     return `[${label}]`.padEnd(this.labelWidth, ' ');
+  }
+
+  private printItemsTable(items: Array<{
+    level: string;
+    verdict: 'agree' | 'disagree' | 'partial' | 'unknown';
+    description: string;
+  }>, levelWidth: number): void {
+    const numberWidth = Math.max(1, items.length.toString().length);
+    const gap = '  ';
+
+    let index = 1;
+    for (const item of items) {
+      const verdict = this.formatVerdict(item.verdict);
+      const description = this.truncateDescription(item.description, 64);
+      const number = `#${String(index).padStart(numberWidth)}`;
+      const row = `${number}${gap}${item.level.padEnd(levelWidth)}    ${verdict} ${description}`;
+      console.log(row);
+      index++;
+    }
+  }
+
+  private formatVerdict(verdict: 'agree' | 'disagree' | 'partial' | 'unknown'): string {
+    switch (verdict) {
+      case 'agree':
+        return '✓';
+      case 'disagree':
+        return '✗';
+      case 'partial':
+        return '~';
+      default:
+        return '?';
+    }
+  }
+
+  private formatLevel(level: 'critical' | 'major' | 'minor' | 'high' | 'medium' | 'low'): string {
+    switch (level) {
+      case 'critical':
+        return 'crit';
+      case 'major':
+        return 'major';
+      case 'minor':
+        return 'minor';
+      case 'high':
+        return 'high';
+      case 'medium':
+        return 'med';
+      case 'low':
+        return 'low';
+      default:
+        return level;
+    }
+  }
+
+  private compareSeverity(
+    left: 'critical' | 'major' | 'minor',
+    right: 'critical' | 'major' | 'minor'
+  ): number {
+    const order = { critical: 0, major: 1, minor: 2 } as const;
+    return order[left] - order[right];
+  }
+
+  private compareImpact(
+    left: 'high' | 'medium' | 'low',
+    right: 'high' | 'medium' | 'low'
+  ): number {
+    const order = { high: 0, medium: 1, low: 2 } as const;
+    return order[left] - order[right];
+  }
+
+  private truncateDescription(text: string, maxLength: number): string {
+    const cleaned = text.replace(/\s+/g, ' ').trim();
+    if (cleaned.length <= maxLength) return cleaned;
+    return cleaned.slice(0, maxLength - 3) + '...';
   }
 
   private showError(event: QuibbleEvent & { type: 'error' }): void {
