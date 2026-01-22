@@ -2,6 +2,8 @@
 
 Adversarial AI document review CLI that iterates between Codex (reviewer) and Claude (author) until consensus is reached. Quibble is designed for markdown documents and keeps a resumable session history on disk by default.
 
+![Quibble screenshot](assets/screenshot.png)
+
 ## Requirements
 
 - Node.js >= 18
