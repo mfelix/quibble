@@ -39,7 +39,7 @@ export class Display {
 
     switch (event.type) {
       case 'start':
-        this.showHeader();
+        this.showHeader(event);
         break;
       case 'round_start':
         this.showRoundStart(event.round);
@@ -158,7 +158,9 @@ export class Display {
     }
   }
 
-  private showHeader(): void {
+  private showHeader(event: QuibbleEvent & { type: 'start' }): void {
+    console.log();
+    console.log(chalk.gray(`${this.formatLabel('Session')} ${event.session_id}`));
     console.log();
   }
 
@@ -187,6 +189,47 @@ export class Display {
     );
     this.showStepUsage('Codex', this.codexStartTime, this.codexTokenCount);
     console.log();
+
+    // Show summary box
+    this.showSummaryBox('Summary', event.overall_assessment);
+    console.log();
+
+    // Show issues table
+    const allLevels = event.issues
+      .map(issue => this.formatLevel(issue.severity))
+      .concat(event.opportunities.map(opp => this.formatLevel(opp.impact)));
+    const levelWidth = Math.max(4, ...allLevels.map(level => level.length));
+
+    if (event.issues.length > 0) {
+      console.log(chalk.gray('Issues'));
+      this.printCodexItemsTable(
+        event.issues
+          .slice()
+          .sort((a, b) => this.compareSeverity(a.severity, b.severity))
+          .map((issue) => ({
+            level: this.formatLevel(issue.severity),
+            description: issue.description,
+          })),
+        levelWidth
+      );
+      console.log();
+    }
+
+    if (event.opportunities.length > 0) {
+      console.log(chalk.gray('Opportunities'));
+      this.printCodexItemsTable(
+        event.opportunities
+          .slice()
+          .sort((a, b) => this.compareImpact(a.impact, b.impact))
+          .map((opp) => ({
+            level: this.formatLevel(opp.impact),
+            description: opp.description,
+          })),
+        levelWidth
+      );
+      console.log();
+    }
+
     this.startClaudeSpinner();
   }
 
@@ -228,7 +271,10 @@ export class Display {
     console.log(chalk.blue(`${this.formatLabel('Claude')} Document updated`));
     this.showStepUsage('Claude', this.claudeStartTime, this.claudeTokenCount, this.claudeTokenEstimated);
     console.log();
-    this.startSpinner(chalk.magenta('[Consensus] Checking...'));
+
+    // Show summary box
+    this.showSummaryBox('Summary', event.consensus_summary);
+    console.log();
   }
 
   private startClaudeSpinner(): void {
@@ -516,6 +562,67 @@ export class Display {
     const cleaned = text.replace(/\s+/g, ' ').trim();
     if (cleaned.length <= maxLength) return cleaned;
     return cleaned.slice(0, maxLength - 3) + '...';
+  }
+
+  private showSummaryBox(title: string, text: string): void {
+    const totalWidth = 76; // Total box width including corners
+    const contentWidth = totalWidth - 4; // 72 chars for text between "│ " and " │"
+
+    // Wrap text to fit within the box
+    const lines = this.wrapText(text, contentWidth);
+
+    // Draw the box
+    const titlePart = `─ ${title} `;
+    const topDashes = totalWidth - 2 - titlePart.length; // -2 for ┌ and ┐
+    const topBorder = `┌${titlePart}${'─'.repeat(topDashes)}┐`;
+    const bottomBorder = `└${'─'.repeat(totalWidth - 2)}┘`;
+
+    console.log(topBorder);
+    for (const line of lines) {
+      const paddedLine = line.padEnd(contentWidth);
+      console.log(`│ ${paddedLine} │`);
+    }
+    console.log(bottomBorder);
+  }
+
+  private wrapText(text: string, maxWidth: number): string[] {
+    const words = text.replace(/\s+/g, ' ').trim().split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (const word of words) {
+      if (currentLine.length === 0) {
+        currentLine = word;
+      } else if (currentLine.length + 1 + word.length <= maxWidth) {
+        currentLine += ' ' + word;
+      } else {
+        lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+
+    if (currentLine.length > 0) {
+      lines.push(currentLine);
+    }
+
+    return lines.length > 0 ? lines : [''];
+  }
+
+  private printCodexItemsTable(items: Array<{
+    level: string;
+    description: string;
+  }>, levelWidth: number): void {
+    const numberWidth = Math.max(1, items.length.toString().length);
+    const gap = '  ';
+
+    let index = 1;
+    for (const item of items) {
+      const description = this.truncateDescription(item.description, 64);
+      const number = `#${String(index).padStart(numberWidth)}`;
+      const row = `${number}${gap}${item.level.padEnd(levelWidth)}    ${description}`;
+      console.log(row);
+      index++;
+    }
   }
 
   private showError(event: QuibbleEvent & { type: 'error' }): void {

@@ -214,8 +214,9 @@ export interface RoundItemsEvent {
 export interface CodexReviewEvent {
   type: 'codex_review';
   round: number;
-  issues: Array<{ id: string; severity: 'critical' | 'major' | 'minor' }>;
-  opportunities: Array<{ id: string; impact: 'high' | 'medium' | 'low' }>;
+  issues: Array<{ id: string; severity: 'critical' | 'major' | 'minor'; description: string }>;
+  opportunities: Array<{ id: string; impact: 'high' | 'medium' | 'low'; description: string }>;
+  overall_assessment: string;
   timestamp: string;
 }
 
@@ -225,6 +226,7 @@ export interface ClaudeResponseEvent {
   agreed: string[];
   disputed: string[];
   partial: string[];
+  consensus_summary: string;
   timestamp: string;
 }
 

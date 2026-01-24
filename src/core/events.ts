@@ -91,25 +91,34 @@ export class EventEmitter {
 
   emitCodexReview(
     round: number,
-    issues: Array<{ id: string; severity: 'critical' | 'major' | 'minor' }>,
-    opportunities: Array<{ id: string; impact: 'high' | 'medium' | 'low' }>
+    issues: Array<{ id: string; severity: 'critical' | 'major' | 'minor'; description: string }>,
+    opportunities: Array<{ id: string; impact: 'high' | 'medium' | 'low'; description: string }>,
+    overallAssessment: string
   ): void {
     this.emit({
       type: 'codex_review',
       round,
       issues,
       opportunities,
+      overall_assessment: overallAssessment,
       timestamp: new Date().toISOString(),
     });
   }
 
-  emitClaudeResponse(round: number, agreed: string[], disputed: string[], partial: string[]): void {
+  emitClaudeResponse(
+    round: number,
+    agreed: string[],
+    disputed: string[],
+    partial: string[],
+    consensusSummary: string
+  ): void {
     this.emit({
       type: 'claude_response',
       round,
       agreed,
       disputed,
       partial,
+      consensus_summary: consensusSummary,
       timestamp: new Date().toISOString(),
     });
   }

@@ -78,6 +78,7 @@ async function execute(config: QuibbleConfig): Promise<number> {
   const storage = createStorageAdapter(
     config.persist,
     config.sessionDir,
+    config.inputFile,
     config.resumeSessionId
   );
 

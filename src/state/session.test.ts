@@ -5,7 +5,7 @@ import { SessionManager } from './session.js';
 describe('SessionManager', () => {
   describe('findResumePoint', () => {
     it('returns round 1 codex_review for fresh session', async () => {
-      const storage = new MemoryStorageAdapter();
+      const storage = new MemoryStorageAdapter('/input.md');
       const session = new SessionManager(storage, '/input.md', '/output.md', 5);
       await session.initialize();
       const { round, phase } = await session.findResumePoint();
@@ -14,7 +14,7 @@ describe('SessionManager', () => {
     });
 
     it('returns claude_response if codex review exists', async () => {
-      const storage = new MemoryStorageAdapter();
+      const storage = new MemoryStorageAdapter('/input.md');
       const session = new SessionManager(storage, '/input.md', '/output.md', 5);
       await session.initialize();
       await session.saveCodexReview(1, {
@@ -28,7 +28,7 @@ describe('SessionManager', () => {
     });
 
     it('returns consensus_check if claude response exists', async () => {
-      const storage = new MemoryStorageAdapter();
+      const storage = new MemoryStorageAdapter('/input.md');
       const session = new SessionManager(storage, '/input.md', '/output.md', 5);
       await session.initialize();
       await session.saveCodexReview(1, {
@@ -52,7 +52,7 @@ describe('SessionManager', () => {
     });
 
     it('returns next round if document saved', async () => {
-      const storage = new MemoryStorageAdapter();
+      const storage = new MemoryStorageAdapter('/input.md');
       const session = new SessionManager(storage, '/input.md', '/output.md', 5);
       await session.initialize();
       await session.saveCodexReview(1, {
@@ -79,7 +79,7 @@ describe('SessionManager', () => {
 
   describe('manifest management', () => {
     it('creates initial manifest with correct values', async () => {
-      const storage = new MemoryStorageAdapter('test-session');
+      const storage = new MemoryStorageAdapter('/input.md', 'test-session');
       const session = new SessionManager(storage, '/input.md', '/output.md', 3);
       await session.initialize();
 
@@ -94,7 +94,7 @@ describe('SessionManager', () => {
     });
 
     it('updates phase correctly', async () => {
-      const storage = new MemoryStorageAdapter();
+      const storage = new MemoryStorageAdapter('/input.md');
       const session = new SessionManager(storage, '/input.md', '/output.md', 5);
       await session.initialize();
 
@@ -106,7 +106,7 @@ describe('SessionManager', () => {
     });
 
     it('completes session with correct status', async () => {
-      const storage = new MemoryStorageAdapter();
+      const storage = new MemoryStorageAdapter('/input.md');
       const session = new SessionManager(storage, '/input.md', '/output.md', 5);
       await session.initialize();
 
@@ -119,7 +119,7 @@ describe('SessionManager', () => {
 
   describe('artifact persistence', () => {
     it('saves and loads codex review', async () => {
-      const storage = new MemoryStorageAdapter();
+      const storage = new MemoryStorageAdapter('/input.md');
       const session = new SessionManager(storage, '/input.md', '/output.md', 5);
       await session.initialize();
 
@@ -136,7 +136,7 @@ describe('SessionManager', () => {
     });
 
     it('saves and loads claude response', async () => {
-      const storage = new MemoryStorageAdapter();
+      const storage = new MemoryStorageAdapter('/input.md');
       const session = new SessionManager(storage, '/input.md', '/output.md', 5);
       await session.initialize();
 

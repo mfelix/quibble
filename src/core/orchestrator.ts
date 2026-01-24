@@ -23,6 +23,7 @@ export class Orchestrator {
   private debugClaudeDir?: string;
   private debugCodexDir?: string;
   private keepDebug: boolean;
+  private currentSummaries: Map<string, string> | null = null;
 
   constructor(
     private config: QuibbleConfig,
@@ -208,10 +209,35 @@ export class Orchestrator {
       debugPath
     );
     await this.session.saveCodexReview(round, review);
+
+    // Summarize items right after review so both displays use consistent descriptions
+    this.currentSummaries = null;
+    if (this.config.summarizeItems) {
+      try {
+        const summaries = await this.codexClient.summarizeItems(
+          review.issues
+            .map((issue) => ({ id: issue.id, description: issue.description }))
+            .concat(review.opportunities.map((opp) => ({ id: opp.id, description: opp.description })))
+        );
+        this.currentSummaries = new Map(summaries.summaries.map((item) => [item.id, item.summary]));
+      } catch {
+        this.currentSummaries = null;
+      }
+    }
+
     this.events.emitCodexReview(
       round,
-      review.issues.map(i => ({ id: i.id, severity: i.severity })),
-      review.opportunities.map(o => ({ id: o.id, impact: o.impact }))
+      review.issues.map(i => ({
+        id: i.id,
+        severity: i.severity,
+        description: this.currentSummaries?.get(i.id) ?? i.description,
+      })),
+      review.opportunities.map(o => ({
+        id: o.id,
+        impact: o.impact,
+        description: this.currentSummaries?.get(o.id) ?? o.description,
+      })),
+      review.overall_assessment
     );
     return review;
   }
@@ -247,35 +273,21 @@ export class Orchestrator {
       else partial.push(r.feedback_id);
     }
 
-    this.events.emitClaudeResponse(round, agreed, disputed, partial);
+    this.events.emitClaudeResponse(round, agreed, disputed, partial, response.consensus_assessment.summary);
     const verdictById = new Map(response.responses.map(r => [r.feedback_id, r.verdict]));
-    let summariesById: Map<string, string> | null = null;
-
-    if (this.config.summarizeItems) {
-      try {
-        const summaries = await this.codexClient.summarizeItems(
-          codexReview.issues
-            .map((issue) => ({ id: issue.id, description: issue.description }))
-            .concat(codexReview.opportunities.map((opp) => ({ id: opp.id, description: opp.description })))
-        );
-        summariesById = new Map(summaries.summaries.map((item) => [item.id, item.summary]));
-      } catch {
-        summariesById = null;
-      }
-    }
 
     this.events.emitRoundItems(
       round,
       codexReview.issues.map((issue) => ({
         id: issue.id,
         severity: issue.severity,
-        description: summariesById?.get(issue.id) ?? issue.description,
+        description: this.currentSummaries?.get(issue.id) ?? issue.description,
         verdict: verdictById.get(issue.id) ?? 'unknown',
       })),
       codexReview.opportunities.map((opp) => ({
         id: opp.id,
         impact: opp.impact,
-        description: summariesById?.get(opp.id) ?? opp.description,
+        description: this.currentSummaries?.get(opp.id) ?? opp.description,
         verdict: verdictById.get(opp.id) ?? 'unknown',
       }))
     );
