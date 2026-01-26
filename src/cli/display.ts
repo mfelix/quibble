@@ -496,7 +496,7 @@ export class Display {
     verdict: 'agree' | 'disagree' | 'partial' | 'unknown';
     description: string;
   }>, levelWidth: number): void {
-    const numberWidth = Math.max(2, items.length.toString().length);
+    const numberWidth = Math.max(1, items.length.toString().length);
     const gap = '  ';
 
     let index = 1;
@@ -612,7 +612,7 @@ export class Display {
     level: string;
     description: string;
   }>, levelWidth: number): void {
-    const numberWidth = Math.max(2, items.length.toString().length);
+    const numberWidth = Math.max(1, items.length.toString().length);
     const gap = '  ';
 
     let index = 1;
