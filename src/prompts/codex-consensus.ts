@@ -1,28 +1,32 @@
 /**
- * Prompt for Codex to verify consensus after Claude's revisions.
- * Codex checks if the updated document addresses their concerns.
+ * Prompt for Codex to check if we've reached a good place after revisions.
+ * Focused on collaboration and forward progress.
  */
 
-export const CODEX_CONSENSUS_SYSTEM_PROMPT = `You are a senior staff engineer performing a follow-up review. You previously reviewed a document and provided feedback. The author has responded to your feedback and made revisions.
+export const CODEX_CONSENSUS_SYSTEM_PROMPT = `You're checking back on a document you reviewed earlier. The author has considered your feedback and made revisions. Let's see where things stand.
 
-Your job is to:
+Look at how they responded to each point:
 
-1. **Evaluate the author's responses to your feedback**
-   - Did they adequately address your concerns?
-   - For disagreements, is their reasoning sound?
-   - Did their changes actually fix the issues?
+1. **Did the changes land well?**
+   - Are the issues you raised addressed?
+   - Do their revisions make the document clearer and stronger?
 
-2. **Check for new issues**
-   - Did the revisions introduce any new problems?
-   - Are there inconsistencies between old and new content?
+2. **Where they pushed back, does it make sense?**
+   - If they disagreed, is their reasoning solid?
+   - Did they share context that changes how you see it?
+   - Be open to learning - maybe they're right
 
-3. **Decide: Consensus or Not?**
-   - APPROVE if: No critical or major issues remain unresolved. Validly disputed items are acceptable.
-   - REJECT if: Any critical or major issues remain unresolved, or new significant issues found
+3. **Any new concerns?**
+   - Did the revisions accidentally introduce issues?
+   - Is everything still coherent?
 
-Be fair but maintain your standards. If the author made a compelling argument for why your feedback was wrong, accept it gracefully. But don't rubber-stamp inadequate fixes.
+4. **Are we in a good place?**
+   - APPROVE: The document is ready to move forward. Open items are minor or the author made good points.
+   - REJECT: There are still meaningful issues that need attention before this is ready.
 
-If <repo_context> is provided, use it to validate claims and avoid speculation.
+The goal is a great document, not winning an argument. If they convinced you, that's a win. If there's still work to do, that's fine too - another round will get us there.
+
+If <repo_context> is provided, use it to ground your assessment in reality.
 
 Output your assessment wrapped in sentinel markers, in this exact format:
 
@@ -33,7 +37,7 @@ Output your assessment wrapped in sentinel markers, in this exact format:
     {
       "original_feedback_id": "issue-1",
       "resolution_status": "resolved|inadequate|validly_disputed|new_issues",
-      "comment": "Brief explanation"
+      "comment": "Brief note on where this landed"
     }
   ],
   "new_issues": [
@@ -41,11 +45,11 @@ Output your assessment wrapped in sentinel markers, in this exact format:
       "id": "new-issue-1",
       "severity": "critical|major|minor",
       "section": "Section reference",
-      "description": "What's wrong",
-      "suggestion": "How to fix"
+      "description": "What needs attention",
+      "suggestion": "How to improve"
     }
   ],
-  "summary": "2-3 sentence overall assessment"
+  "summary": "2-3 sentence summary of where things stand"
 }
 <<<QUIBBLE_JSON_END>>>`;
 
@@ -63,11 +67,11 @@ export function buildCodexConsensusPrompt(
   sections.push(`<author_responses>\n${authorResponses}\n</author_responses>`);
   sections.push(`<updated_document>\n${updatedDocument}\n</updated_document>`);
 
-  return `You previously reviewed a document and the author has responded with revisions. Evaluate whether your concerns have been adequately addressed.
+  return `You reviewed this document earlier and the author has responded. Take a look at how they addressed your feedback and whether we're in a good place now.
 
 ${sections.join('\n\n')}
 
-Determine whether to approve the document or request further changes.
+Share your assessment of where things stand.
 
 Respond with JSON wrapped in <<<QUIBBLE_JSON_START>>> and <<<QUIBBLE_JSON_END>>> markers. No other text.`;
 }

@@ -131,23 +131,40 @@ function extractReferences(documentContent: string): string[] {
   const refs: string[] = [];
   const seen = new Set<string>();
 
+  const addRef = (raw: string): void => {
+    const normalized = normalizeReference(raw);
+    if (normalized && !seen.has(normalized)) {
+      seen.add(normalized);
+      refs.push(normalized);
+    }
+  };
+
+  // Markdown links: [text](path/to/file.ts)
   const linkRegex = /\[[^\]]+\]\(([^)\s]+)\)/g;
   let match: RegExpExecArray | null;
   while ((match = linkRegex.exec(documentContent)) !== null) {
-    const normalized = normalizeReference(match[1]);
-    if (normalized && !seen.has(normalized)) {
-      seen.add(normalized);
-      refs.push(normalized);
-    }
+    addRef(match[1]);
   }
 
-  const pathRegex = /(^|[\s"'`(])([A-Za-z0-9_./-]+?\.[A-Za-z0-9]{1,8})(?=[$\s)"',.:;!?])/g;
+  // Inline code: `path/to/file.ts`
+  const codeRegex = /`([^`\n]+\.[A-Za-z0-9]{1,8})`/g;
+  while ((match = codeRegex.exec(documentContent)) !== null) {
+    addRef(match[1]);
+  }
+
+  // Bare file paths in text - look for path-like patterns with extensions
+  // Matches: ./file.ts, ../dir/file.ts, src/dir/file.ts, file.ts
+  // Bounded by whitespace, quotes, parens, or line boundaries
+  const pathRegex = /(?:^|[\s"'(,])(\.\/?\.?[A-Za-z0-9_/-]*[A-Za-z0-9_-]+\.[A-Za-z0-9]{1,8})(?=[\s"'),.:;!?\n]|$)/gm;
   while ((match = pathRegex.exec(documentContent)) !== null) {
-    const normalized = normalizeReference(match[2]);
-    if (normalized && !seen.has(normalized)) {
-      seen.add(normalized);
-      refs.push(normalized);
-    }
+    addRef(match[1]);
+  }
+
+  // Also catch paths that start with a directory name (no leading ./)
+  // like: src/utils/file.ts, lib/helper.js
+  const dirPathRegex = /(?:^|[\s"'(,])([A-Za-z][A-Za-z0-9_-]*\/[A-Za-z0-9_./-]+\.[A-Za-z0-9]{1,8})(?=[\s"'),.:;!?\n]|$)/gm;
+  while ((match = dirPathRegex.exec(documentContent)) !== null) {
+    addRef(match[1]);
   }
 
   return refs;

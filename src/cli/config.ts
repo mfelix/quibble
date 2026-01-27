@@ -18,6 +18,7 @@ export interface QuibbleConfig {
   keepDebug: boolean;
   resumeSessionId?: string;
   sessionDir: string;
+  focus?: string;
 }
 
 interface RawOptions {
@@ -35,6 +36,7 @@ interface RawOptions {
   keepDebug: boolean;
   resume?: string;
   sessionDir?: string;
+  focus?: string;
 }
 
 export function resolveConfig(inputFile: string, options: RawOptions): QuibbleConfig {
@@ -113,6 +115,7 @@ export function resolveConfig(inputFile: string, options: RawOptions): QuibbleCo
     keepDebug: options.keepDebug,
     resumeSessionId: options.resume,
     sessionDir,
+    focus: options.focus,
   };
 }
 

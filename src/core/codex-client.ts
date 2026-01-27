@@ -13,8 +13,8 @@ import {
   type Summaries,
 } from '../types/index.js';
 import {
-  CODEX_REVIEW_SYSTEM_PROMPT,
   buildCodexReviewPrompt,
+  buildCodexReviewSystemPrompt,
   CODEX_CONSENSUS_SYSTEM_PROMPT,
   buildCodexConsensusPrompt,
   CODEX_SUMMARIZE_SYSTEM_PROMPT,
@@ -32,11 +32,13 @@ export class CodexClient extends BaseClient {
   async review(
     documentContent: string,
     contextBlock?: string,
+    focus?: string,
     onProgress?: (text: string, tokenCount: number | null, status?: string) => void,
     debugStreamPath?: string
   ): Promise<CodexReview> {
     const prompt = buildCodexReviewPrompt(documentContent, contextBlock);
-    const output = await this.runCodex(prompt, CODEX_REVIEW_SYSTEM_PROMPT, onProgress, debugStreamPath);
+    const systemPrompt = buildCodexReviewSystemPrompt(focus);
+    const output = await this.runCodex(prompt, systemPrompt, onProgress, debugStreamPath);
 
     const result = parseCliOutput(output, CodexReviewSchema);
     if (!result.success) {

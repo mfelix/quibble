@@ -240,19 +240,11 @@ export class Display {
     }
 
     const totalKb = Math.ceil(event.total_bytes / 1024);
-    const fileList = event.files.map((file) => {
-      const suffix = file.truncated ? ' (truncated)' : '';
-      return `${file.path}${suffix}`;
-    });
-    const shown = fileList.slice(0, 6);
-    const remaining = fileList.length - shown.length;
-    const line = remaining > 0
-      ? `${shown.join(', ')} (+${remaining} more)`
-      : shown.join(', ');
-
     console.log(chalk.gray(`${this.formatLabel('Context')} Included ${event.files.length} files (${totalKb} KB)`));
-    if (line) {
-      console.log(chalk.gray(`${this.formatLabel('Context')} ${line}`));
+
+    for (const file of event.files) {
+      const suffix = file.truncated ? chalk.yellow(' (truncated)') : '';
+      console.log(chalk.gray(`${this.formatLabel('Context')}   ${file.path}${suffix}`));
     }
     console.log();
 

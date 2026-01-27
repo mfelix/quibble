@@ -32,6 +32,7 @@ export function run(argv: string[]): void {
     .option('--keep-debug', 'Keep debug logs after a successful run', false)
     .option('--resume <id>', 'Resume a previous session by ID')
     .option('--session-dir <path>', 'Override session storage location')
+    .option('--focus <guidance>', 'Focus the review on specific aspects (e.g., "functional requirements")')
     .action(async (file: string, options: RawCliOptions) => {
       try {
         const config = resolveConfig(file, options);
@@ -142,4 +143,5 @@ interface RawCliOptions {
   keepDebug: boolean;
   resume?: string;
   sessionDir?: string;
+  focus?: string;
 }

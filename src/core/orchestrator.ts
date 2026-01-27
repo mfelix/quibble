@@ -84,7 +84,7 @@ export class Orchestrator {
       const codexStartMs = Date.now();
       if (currentPhase === 'codex_review' || currentPhase === 'pending') {
         await this.session.setPhase('codex_review');
-        codexReview = await this.runCodexReview(currentRound, contextBlock, (tokens) => {
+        codexReview = await this.runCodexReview(currentRound, contextBlock, this.config.focus, (tokens) => {
           codexTokenCount = tokens;
         });
         currentPhase = 'claude_response';
@@ -192,6 +192,7 @@ export class Orchestrator {
   private async runCodexReview(
     round: number,
     contextBlock?: string | null,
+    focus?: string,
     onTokens?: (tokens: number) => void
   ): Promise<CodexReview> {
     const debugPath = this.debugCodexDir
@@ -200,6 +201,7 @@ export class Orchestrator {
     const review = await this.codexClient.review(
       this.currentDocument,
       contextBlock ?? undefined,
+      focus,
       (text, tokenCount, status) => {
         if (typeof tokenCount === 'number') {
           onTokens?.(tokenCount);
