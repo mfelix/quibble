@@ -1,11 +1,29 @@
 {
-  "name": "quibble",
+  "name": "@mfelix.org/quibble",
   "version": "1.0.0",
   "description": "Adversarial AI document review CLI",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
     "quibble": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mfelix/quibble.git"
+  },
+  "keywords": [
+    "cli",
+    "ai",
+    "review",
+    "document"
+  ],
+  "author": "mfelix",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc",

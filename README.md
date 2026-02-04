@@ -13,21 +13,23 @@ Adversarial AI document review CLI that iterates between Codex (reviewer) and Cl
 ## Install
 
 ```bash
+npx @mfelix.org/quibble <file>
+```
+
+Or install globally:
+
+```bash
+npm install -g @mfelix.org/quibble
+quibble <file>
+```
+
+### From source
+
+```bash
+git clone https://github.com/mfelix/quibble.git
+cd quibble
 npm install
 npm run build
-```
-
-### Running locally (no global install)
-
-```bash
-node dist/index.js <file>
-```
-
-### Optional: `npm link` for development
-
-If you are working on this repo and want a global `quibble` command without publishing:
-
-```bash
 npm link
 ```
 
@@ -43,23 +45,30 @@ Example:
 quibble docs/plan.md
 ```
 
+Focus the review on specific aspects:
+
+```bash
+quibble docs/plan.md --focus "security and error handling"
+```
+
 ## CLI Options
 
 ```text
---json             Output structured JSONL events
---debug-claude     Log raw Claude stream lines for debugging
---debug-codex      Log raw Codex stream lines for debugging
---dry-run          Show resolved config and exit
+--focus <guidance>            Focus the review on specific aspects
+--json                        Output structured JSONL events
+--max-rounds <n>              Maximum review cycles before forced stop (default: 5)
+--output <path>               Output path for final document
+--resume <id>                 Resume a previous session by ID
+--session-dir <p>             Override session storage location
+--no-persist                  Disable session storage; runs in-memory only
+--no-summarize-items          Disable LLM summarization of issues/opportunities
 --context-max-files <n>       Max auto-included context files
 --context-max-file-bytes <n>  Max bytes per context file
 --context-max-total-bytes <n> Max total bytes across context files
---no-summarize-items          Disable LLM summarization of issues/opportunities
---keep-debug       Keep debug logs after a successful run
---max-rounds <n>   Maximum review cycles before forced stop (default: 5)
---no-persist       Disable session storage; runs in-memory only
---output <path>    Output path for final document
---resume <id>      Resume a previous session by ID
---session-dir <p>  Override session storage location
+--debug-claude                Log raw Claude stream lines for debugging
+--debug-codex                 Log raw Codex stream lines for debugging
+--keep-debug                  Keep debug logs after a successful run
+--dry-run                     Show resolved config and exit
 ```
 
 ## How It Works
@@ -139,6 +148,7 @@ Logs are written to the session `debug/` directory. By default they are deleted 
 ## Development
 
 ```bash
+npm install
 npm run build
 npm run typecheck
 npm test
