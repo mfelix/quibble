@@ -12,11 +12,13 @@ Adversarial AI document review CLI that iterates between Codex (reviewer) and Cl
 
 ## Install
 
+Run directly without installing:
+
 ```bash
 npx @mfelix.org/quibble <file>
 ```
 
-Or install globally:
+Or install globally for repeated use:
 
 ```bash
 npm install -g @mfelix.org/quibble
